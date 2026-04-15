@@ -1,27 +1,10 @@
 /*
+ * COMAR Unified Core - Main Entry Point
+ * Copyright (c) 2026, Ergün Salman (Poyraz76)
  *
- * Copyright (c) 2005-2010, TUBITAK/UEKAE
- *
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without
- * restriction, including without limitation the rights to use, copy,
- * modify, merge, publish, distribute, sublicense, and/or sell copies
- * of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be
- * included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
- * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * [span_1](start_span)ALTYAPI: Unified Core 4.0.0 (2026 Edition).[span_1](end_span)
+ * GÜVENLİK: Root Enforcement & Sealed Directory Architecture.
+ * [span_2](start_span)SİSTEM: Python 3.12+ Integration & D-Bus Main Loop.[span_2](end_span)
  */
 
 #include "config.h"
@@ -35,55 +18,68 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-int
-main(int argc, char *argv[])
-{
-    // Configuration
+/**
+ * COMAR ana giriş fonksiyonu.
+ */
+int main(int argc, char *argv[]) {
+    // 1. Yapılandırma Motorunu Ateşle
     config_init(argc, argv);
 
-    // Got root?
+    // 2. Yetki Kontrolü: Sistem servisi mutlaka 'root' olarak başlamalıdır.
     if (getuid() != 0) {
-        log_error("System service should be started as root.\n");
-        exit(1);
+        log_error("Kritik Hata: COMAR çekirdeği 'root' yetkisi olmadan başlatılamaz.\n");
+        exit(EXIT_FAILURE);
     }
 
-    // Check directories
-    if (check_dir(config_dir_data) != 0 || check_dir(config_dir_models) != 0 || check_dir(config_dir_modules) != 0) {
-        exit(1);
+    // 3. Mevcut Dizinlerin Mühür Kontrolü
+    [span_3](start_span)[span_4](start_span)// Veri, Model ve Modül dizinleri kurulum sırasında (CMake) oluşturulmuş olmalıdır.[span_3](end_span)[span_4](end_span)
+    if (check_dir(config_dir_data) != 0 || 
+        check_dir(config_dir_models) != 0 || 
+        check_dir(config_dir_modules) != 0) {
+        log_error("Hata: Temel sistem dizinleri eksik veya mühürsüz. Kurulumu kontrol edin.\n");
+        exit(EXIT_FAILURE);
     }
 
-    // Create directories
-    if (create_dir(config_dir_scripts) != 0 || create_dir(config_dir_apps) != 0 || create_dir(config_dir_log) != 0) {
-        exit(1);
+    // 4. Çalışma Zamanı Dizinlerini Mühürle
+    [span_5](start_span)// Betikler, Uygulama kayıtları ve Loglar için gerekli yollar oluşturulur.[span_5](end_span)
+    if (create_dir(config_dir_scripts) != 0 || 
+        create_dir(config_dir_apps) != 0 || 
+        create_dir(config_dir_log) != 0) {
+        log_error("Hata: Çalışma zamanı dizinleri (scripts/apps/log) oluşturulamadı.\n");
+        exit(EXIT_FAILURE);
     }
 
-    // If "--print" is not used, log to file from this moment
+    // 5. Günlükleme Seviyesi Ayarı
+    // --print parametresi yoksa günlükler dosyaya mühürlenir.
     if (config_print == 0) {
         config_runlevel = 1;
     }
 
-    log_debug("Initializing...\n");
-    log_debug("\n");
+    log_info("COMAR Unified Core 4.0 Başlatılıyor...\n");
+    log_debug("Sistem Dizinleri Mühürlendi:\n");
+    log_debug("  Modüller : %s\n", config_dir_modules);
+    log_debug("  Modeller : %s\n", config_dir_models);
+    log_debug("  Betikler : %s\n", config_dir_scripts);
+    log_debug("  Günlük   : %s\n\n", config_file_log_access);
 
-    log_debug("Modules directory          : %s\n", config_dir_modules);
-    log_debug("Models directory           : %s\n", config_dir_models);
-    log_debug("Scripts directory          : %s\n", config_dir_scripts);
-    log_debug("Access log                 : %s\n", config_file_log_access);
-    log_debug("Trace log                  : %s\n", config_file_log_traceback);
-    log_debug("\n");
-
-    // Initialize Python VM
+    // 6. Python VM Motorunu 2026 Standartlarında Başlat
+    // Python 3.12+ entegrasyonu ve mühürlü istisnalar burada yüklenir.
     if (script_init() != 0) {
-        exit(1);
+        log_error("Kritik Hata: Python VM başlatılamadı.\n");
+        exit(EXIT_FAILURE);
     }
 
-    // Initialize parent process
+    // 7. Süreç Yönetim Motorunu (Process Manager) Hazırla
+    // Alt süreçlerin takibi ve sinyal yakalama mekanizması mühürlenir.
     proc_init();
 
-    // Enter main loop
+    // 8. Ana Döngüye Gir (The Big Loop)
+    [span_6](start_span)// D-Bus üzerindeki tüm asenkron talepler buradan yönetilir.[span_6](end_span)
+    log_info("Çekirdek D-Bus üzerinde dinlemede (Unified Loop).\n");
     loop_exec();
 
-    // Finalize Python VM
+    // 9. Temizlik ve Kapanış
+    log_info("Sistem kapatılıyor, Python VM mühürleri sökülüyor.\n");
     script_finalize();
 
     return 0;

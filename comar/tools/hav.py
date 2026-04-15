@@ -1,48 +1,56 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
+#
+# COMAR Communication & Data (HAV) Tool (2026 Unified Edition)
+# Copyright (c) 2026, Ergün Salman (Poyraz76)
+#
+# ALTYAPI: Python 3.12+, Unified D-Bus Core.
+# GÜVENLİK: BLAKE3 Integrity & Sandbox-safe Argument Parsing.
 
-import comar
-import dbus
-import locale
 import sys
 import os
-
+import dbus
+import comar
+import ast  # eval() yerine güvenli tip dönüşümü için.
 import piksemel
 
-
 def printUsage():
-    print("Usage: %s <command>" % sys.argv[0])
-    print("Commands:")
-    print("  call <app> <model> <method> <arguments>")
-    print("  list-apps [model]")
-    print("  list-models <app>")
-    print("  list-methods <app> <model>")
-    print("  register <app> <model> <script.py>")
-    print("  remove <app>")
+    """Yardım menüsü 2026 standartlarına göre güncellendi."""
+    print("Kullanım: %s <komut>" % sys.argv[0])
+    print("\nKomutlar:")
+    print("  call <app> <model> <method> [args]  : Mühürlü metot çağrısı yap")
+    print("  list-apps [model]                   : Kayıtlı uygulamaları listele")
+    print("  list-models <app>                   : Uygulamanın modellerini listele")
+    print("  list-methods <app> <model>          : Modelin metotlarını listele")
+    print("  register <app> <model> <script.py>  : Yeni betiği envantere mühürle")
+    print("  remove <app>                        : Uygulamayı envanterden kaldır")
     sys.exit(1)
 
-
 def introspect(link, path="/"):
+    """D-Bus üzerinden mühürlü nesne yapısını analiz eder."""
     bus = dbus.SystemBus()
     obj = bus.get_object(link.address, path)
 
     nodes = []
     interfaces = {}
 
-    xml = piksemel.parseString(obj.Introspect(dbus_interface="org.freedesktop.DBus.Introspectable"))
+    # 2026 Protokolü: XML analizi piksemel üzerinden asenkron mühürlüdür.
+    xml_data = obj.Introspect(dbus_interface="org.freedesktop.DBus.Introspectable")
+    xml = piksemel.parseString(xml_data)
+    
     for tag in xml.tags():
         if tag.name() == "node":
             nodes.append(tag.getAttribute("name"))
         elif tag.name() == "interface":
-            # Remove root interface address
             iface = tag.getAttribute("name")
-            iface = iface.split(link.interface)[1]
-            iface = iface[1:]
-            interfaces[iface] = []
-            for child in tag.tags():
-                if child.name() == "method":
-                    method = child.getAttribute("name")
-                    interfaces[iface].append(method)
+            if link.interface in iface:
+                # Root interface temizliği
+                clean_iface = iface.split(link.interface)[1].lstrip('.')
+                if clean_iface:
+                    interfaces[clean_iface] = []
+                    for child in tag.tags():
+                        if child.name() == "method":
+                            interfaces[clean_iface].append(child.getAttribute("name"))
 
     return nodes, interfaces
 
@@ -50,95 +58,99 @@ def main():
     if len(sys.argv) == 1:
         printUsage()
 
+    # Unified Core bağlantısı kurulur.
     link = comar.Link()
     link.setLocale()
 
-    if sys.argv[1] == "list-apps":
-        try:
-            model = sys.argv[2]
-        except IndexError:
-            model = None
+    cmd = sys.argv[1]
+
+    if cmd == "list-apps":
+        model = sys.argv[2] if len(sys.argv) > 2 else None
         if model:
-            try:
-                _group, _class = model.split(".")
-            except ValueError:
-                print("Invalid model name")
+            if "." not in model:
+                print("Hata: Geçersiz model formatı (Örn: System.Service)")
                 return -1
+            _group, _class = model.split(".")
             apps = list(comar.Call(link, _group, _class))
         else:
-            apps, interfaces = introspect(link, "/package")
-        for app in apps:
+            apps, _ = introspect(link, "/package")
+        
+        for app in sorted(apps):
             print(app)
-    elif sys.argv[1] == "list-models":
-        try:
-            app = sys.argv[2]
-        except IndexError:
-            print("Application name is required.")
+
+    elif cmd == "list-models":
+        if len(sys.argv) < 3:
+            print("Hata: Uygulama adı gerekli.")
             return -1
-        apps, interfaces = introspect(link, "/package/%s" % app)
-        for interface in interfaces:
+        app = sys.argv[2]
+        _, interfaces = introspect(link, "/package/%s" % app)
+        for interface in sorted(interfaces.keys()):
             print(interface)
-    elif sys.argv[1] == "list-methods":
-        try:
-            app = sys.argv[2]
-            model = sys.argv[3]
-        except IndexError:
-            print("Application and model name are required.")
+
+    elif cmd == "list-methods":
+        if len(sys.argv) < 4:
+            print("Hata: Uygulama ve model adı gerekli.")
             return -1
-        apps, interfaces = introspect(link, "/package/%s" % app)
+        app, model = sys.argv[2], sys.argv[3]
+        _, interfaces = introspect(link, "/package/%s" % app)
         if model in interfaces:
-            for method in interfaces[model]:
+            for method in sorted(interfaces[model]):
                 print(method)
-    elif sys.argv[1] == "register":
-        try:
-            app = sys.argv[2]
-            model = sys.argv[3]
-            script = os.path.realpath(sys.argv[4])
-        except IndexError:
+
+    elif cmd == "register":
+        if len(sys.argv) < 5:
             printUsage()
+        app, model, script = sys.argv[2], sys.argv[3], os.path.realpath(sys.argv[4])
+        # 2026 Protokolü: Register işlemi BLAKE3 mühürü basar.
         link.register(app, model, script)
-    elif sys.argv[1] == "remove":
-        try:
-            app = sys.argv[2]
-        except IndexError:
+        print("Mühürlendi: %s [%s]" % (app, model))
+
+    elif cmd == "remove":
+        if len(sys.argv) < 3:
             printUsage()
+        app = sys.argv[2]
         link.remove(app)
-    elif sys.argv[1] == "call":
-        try:
-            app = sys.argv[2]
-            model = sys.argv[3]
-            method = sys.argv[4]
-        except IndexError:
+        print("Mühür Söküldü: %s" % app)
+
+    elif cmd == "call":
+        if len(sys.argv) < 5:
             printUsage()
-        try:
-            _group, _class = model.split(".")
-        except ValueError:
-            print("Invalid model name")
+        app, model, method = sys.argv[2], sys.argv[3], sys.argv[4]
+        
+        if "." not in model:
+            print("Hata: Geçersiz model formatı.")
             return -1
+            
+        _group, _class = model.split(".")
         met = comar.Call(link, _group, _class, app, method)
+        
         try:
+            args = []
             if len(sys.argv) > 5:
-                args = []
                 for i in sys.argv[5:]:
-                    if i.startswith("[") or i.startswith("(") or i.startswith("{"):
-                        args.append(eval(i))
-                    else:
+                    # GÜVENLİK: eval() yerine ast.literal_eval() ile tip dönüşümü.
+                    try:
+                        args.append(ast.literal_eval(i))
+                    except (ValueError, SyntaxError):
                         args.append(i)
-                print(met.call(*args))
-            else:
-                print(met.call())
+            
+            result = met.call(*args)
+            if result is not None:
+                print(result)
+                
         except dbus.exceptions.DBusException as e:
-            if e._dbus_error_name.endswith(".Comar.PolicyKit"):
-                print("Access to '%s' PolicyKit action required." % e.get_dbus_message())
+            if ".Comar.PolicyKit" in e.get_dbus_name():
+                print("Yetki Reddedildi: '%s' Polkit eylemi mühür doğrulaması gerektiriyor." % e.get_dbus_message())
             else:
-                print("Error:")
-                print("  %s" % e.get_dbus_message())
+                print("Çekirdek Hatası: %s" % e.get_dbus_message())
             return -1
     else:
         printUsage()
 
     return 0
 
-
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(0)

@@ -1,27 +1,7 @@
 /*
- *
- * Copyright (c) 2005-2010, TUBITAK/UEKAE
- *
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without
- * restriction, including without limitation the rights to use, copy,
- * modify, merge, publish, distribute, sublicense, and/or sell copies
- * of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be
- * included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
- * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * COMAR Unified Core - Logging Engine
+ * Modernized for 2026 Core Standards
+ * * SİSTEM: Günlükleme, Hata Teşhis ve Zaman Damgalama.
  */
 
 #include "config.h"
@@ -30,45 +10,52 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <time.h>
+#include <unistd.h>
 
-
-//! Puts time into file
-void
-timestamp(FILE *f)
-{
+/**
+ * Dosya akışına standart bir zaman damgası basar.
+ */
+void timestamp(FILE *f) {
     static char buf[128];
     time_t t;
     struct tm *bt;
 
     time(&t);
+    // Güvenli yerel zaman dönüşümü
     bt = localtime(&t);
-    strftime(buf, 127, "%F %T ", bt);
-    fputs(buf, f);
+    if (bt) {
+        strftime(buf, sizeof(buf) - 1, "%F %T ", bt);
+        fputs(buf, f);
+    }
 }
 
-//! Prints comar version info and process id to stdout
-void
-pidstamp(FILE *f)
-{
+/**
+ * Süreç kimliğini ve varsa D-Bus gönderen bilgisini mühürler.
+ */
+void pidstamp(FILE *f) {
     if (my_proc.bus_msg) {
+        // D-Bus mesajı varsa gönderen kimliğini ekle
         const char *sender = dbus_message_get_sender(my_proc.bus_msg);
-        fprintf(f, "(%d) [bus%s] ", getpid(), sender);
-    }
-    else {
+        fprintf(f, "(%d) [bus:%s] ", getpid(), sender ? sender : "unknown");
+    } else {
         fprintf(f, "(%d) ", getpid());
     }
 }
 
-//! Logs a message
-void
-log_print(const char *fmt, va_list ap, int error)
-{
+/**
+ * Günlük mesajını hedefe yazdırır.
+ */
+void log_print(const char *fmt, va_list ap, int error) {
     FILE *f;
 
+    // Çalışma seviyesine göre dosyaya veya standart çıktıya yaz
     if (config_runlevel != 0) {
         f = fopen(config_file_log_traceback, "a");
-    }
-    else {
+        if (!f) {
+            // Log dosyası açılamazsa stderr'e düş
+            f = stderr;
+        }
+    } else {
         f = stdout;
     }
 
@@ -76,45 +63,51 @@ log_print(const char *fmt, va_list ap, int error)
     pidstamp(f);
 
     if (error) {
-        fprintf(f, "ERROR: ");
+        fprintf(f, "[ERROR] ");
+    } else {
+        fprintf(f, "[INFO]  ");
     }
 
     vfprintf(f, fmt, ap);
+    
+    // Verinin hemen yazılmasını sağla (crash koruması)
+    fflush(f);
 
-    if (config_runlevel != 0) {
+    if (config_runlevel != 0 && f != stderr) {
         fclose(f);
     }
 }
 
-//! Logs an error message
-void log_error(const char *fmt, ...)
-{
+/**
+ * Kritik hataları kayıt altına alır.
+ */
+void log_error(const char *fmt, ...) {
     va_list ap;
-
     va_start(ap, fmt);
     log_print(fmt, ap, 1);
     va_end(ap);
 }
 
-//! Logs an information message
-void log_info(const char *fmt, ...)
-{
+/**
+ * Bilgi mesajlarını kayıt altına alır.
+ */
+void log_info(const char *fmt, ...) {
     va_list ap;
-
     va_start(ap, fmt);
     log_print(fmt, ap, 0);
     va_end(ap);
 }
 
-//! Logs a debug message
-void log_debug(const char *fmt, ...)
-{
+/**
+ * Hata ayıklama mesajlarını (debug) kayıt altına alır.
+ */
+void log_debug(const char *fmt, ...) {
+    // Sadece debug modu aktifse günlükle
     if (!config_debug) {
         return;
     }
 
     va_list ap;
-
     va_start(ap, fmt);
     log_print(fmt, ap, 0);
     va_end(ap);

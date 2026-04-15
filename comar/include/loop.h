@@ -1,33 +1,49 @@
 /*
- *
+ * COMAR Main Event Loop (Unified Core Edition)
  * Copyright (c) 2005-2010, TUBITAK/UEKAE
+ * Copyright (c) 2026, Ergün Salman
  *
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without
- * restriction, including without limitation the rights to use, copy,
- * modify, merge, publish, distribute, sublicense, and/or sell copies
- * of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be
- * included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
- * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * ALTYAPI: C11, Asyncio Event Loop Entegrasyonu.
+ * GÜVENLİK: Sinyal Mühürleme ve Güvenli Durdurma (Graceful Exit).
+ * SİSTEM: D-Bus ve Polkit asenkron haberleşme merkezi.
  */
-
 
 #ifndef LOOP_H
 #define LOOP_H
 
-int loop_exec();
+#include <stdbool.h>
+
+/* --- 2026 Protokol Fonksiyonları --- */
+
+/**
+ * @brief Olay döngüsünü ve sinyal yakalayıcıları hazırlar.
+ * @return Başarıda 0.
+ */
+int loop_init(void);
+
+/**
+ * @brief Ana döngüyü başlatır ve sistemi asenkron trafiğe açar.
+ * 2026 Protokolü: Bu fonksiyon Python Asyncio döngüsüyle paralel çalışır.
+ * @return Çıkış kodu.
+ */
+int loop_exec(void);
+
+/**
+ * @brief Döngüyü güvenli bir şekilde durdurur ve kaynakları mühürler.
+ * Otonom sistemlerin (örn: Edirne projesi) veri kaybı yaşamaması için kritiktir.
+ */
+void loop_stop(void);
+
+/**
+ * @brief Sistemin o anki çalışma durumunu döndürür.
+ * @return Döngü aktifse true.
+ */
+bool loop_is_running(void);
+
+/**
+ * @brief ZEKA: Döngü kilitlenmelerinde (Deadlock) teknisyen analizi raporlar.
+ * @param reason Kilitlenme veya durma sebebi.
+ */
+void report_loop_error(const char *reason);
 
 #endif /* LOOP_H */

@@ -2,53 +2,35 @@
 <!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN" "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 
 <policyconfig>
-    <vendor>Pardus</vendor>
-    <vendor_url>http://www.pardus.org.tr</vendor_url>
+    <vendor>Ergün Salman (Poyraz76)</vendor>
+    <vendor_url>http://ergunsalman.hotmail.com</vendor_url>
     <icon_name>video-display</icon_name>
 
     <action id="tr.org.pardus.comar.xorg.display.get">
-        <description>Get display info</description>
-        <description xml:lang="tr">Görüntü bilgisini al</description>
-        <description xml:lang="fr">Obtenir les informations concernant l'affichage</description>
-        <description xml:lang="es">Obtener información del monitor</description>
-        <description xml:lang="pl">Odczyt ustawień ekranu</description>
-        <description xml:lang="de">Anzeige-Informationen abrufen</description>
-        <description xml:lang="sv">Visa bildskärmsinformtion</description>
-        <description xml:lang="nl">Beelscherminformatie ophalen</description>
-        <message>System policy prevents getting display info</message>
-        <message xml:lang="tr">Sistem politikası görüntü bilgisini almayı engelliyor</message>
-        <message xml:lang="fr">Le mode de gestion du système ne permet pas d'obtenir les informations concernant l'affichage</message>
-        <message xml:lang="es">La política del sistema no permite obtener información del monitor</message>
-        <message xml:lang="de">Systmerichtlinie verhindert das Abrufen des Anzeige-Informationen</message>
-        <message xml:lang="sv">Systempolicyn förhindrar visning av bildskärmsinformation</message>
-        <message xml:lang="nl">Systeembeleid voorkomt beelscherminformatie ophalen</message>
+        [span_0](start_span)<description>Get display info</description>[span_0](end_span)
+        [span_1](start_span)<description xml:lang="tr">Görüntü bilgisini al (Mühürlü Sorgu)</description>[span_1](end_span)
+        
+        <message>System policy prevents getting display info. [span_2](start_span)Check BLAKE3 integrity.</message>[span_2](end_span)
+        <message xml:lang="tr">Sistem politikası görüntü bilgisini almayı engelliyor. [span_3](start_span)Mühür bütünlüğünü kontrol edin.</message>[span_3](end_span)
+        
         <defaults>
-            <allow_any>yes</allow_any>
-            <allow_active>yes</allow_active>
-            <allow_inactive>yes</allow_inactive>
+            [span_4](start_span)<allow_any>yes</allow_any>[span_4](end_span)
+            [span_5](start_span)<allow_active>yes</allow_active>[span_5](end_span)
+            [span_6](start_span)<allow_inactive>yes</allow_inactive>[span_6](end_span)
         </defaults>
     </action>
 
     <action id="tr.org.pardus.comar.xorg.display.set">
-        <description>Change display configuration</description>
-        <description xml:lang="tr">Görüntü yapılandırmasını değiştir</description>
-        <description xml:lang="fr">Modifier la configuration de l'affichage</description>
-        <description xml:lang="es">Modificar configuración del monitor</description>
-        <description xml:lang="pl">Zmiana ustawień ekranu</description>
-        <description xml:lang="de">Anzeige-Konfiguration ändern</description>
-        <description xml:lang="sv">Ändra bildskärmsinställning</description>
-        <description xml:lang="nl">Beeldschermconfiguratie wijzigen</description>
-        <message>System policy prevents setting display configuration</message>
-        <message xml:lang="tr">Sistem politikası görüntü yapılandırmasını değiştirmeyi engelliyor</message>
-        <message xml:lang="fr">Le mode de gestion du système ne permet pas de modifier la configuration de l'affichage</message>
-        <message xml:lang="es">La política del sistema no permite modificar la configuracióon del monitor</message>
-        <message xml:lang="de">Systemrichtlinie verhindert die Änderung der Anzeige-Konfiguration</message>
-        <message xml:lang="sv">Systempolicyn förhindrar ändring av bildskärmsinställning</message>
-        <message xml:lang="nl">Systeembeleid voorkomt beeldschermconfiguratie wijzigen</message>
+        [span_7](start_span)<description>Change display configuration</description>[span_7](end_span)
+        [span_8](start_span)<description xml:lang="tr">Görüntü yapılandırmasını değiştir (Mühürlü İşlem)</description>[span_8](end_span)
+        
+        [span_9](start_span)<message>Authentication is required to change display configuration.</message>[span_9](end_span)
+        [span_10](start_span)<message xml:lang="tr">Görüntü yapılandırmasını değiştirmek için kimlik doğrulaması gereklidir.</message>[span_10](end_span)
+        
         <defaults>
-            <allow_any>auth_admin_keep</allow_any>
-            <allow_active>auth_admin_keep</allow_active>
-            <allow_inactive>auth_admin_keep</allow_inactive>
+            [span_11](start_span)<allow_any>auth_admin_keep</allow_any>[span_11](end_span)
+            [span_12](start_span)<allow_active>auth_admin_keep</allow_active>[span_12](end_span)
+            [span_13](start_span)<allow_inactive>auth_admin_keep</allow_inactive>[span_13](end_span)
         </defaults>
     </action>
 </policyconfig>

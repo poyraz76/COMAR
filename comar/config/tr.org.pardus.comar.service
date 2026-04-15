@@ -1,4 +1,16 @@
+# COMAR D-Bus Service Configuration (2026 Unified Core)
+# Copyright (c) 2026, Ergün Salman
+#
+# ALTYAPI: Python 3.12+, x86_64, SQLite DB.
+# GÜVENLİK: BLAKE3 Mühürleme ve Root Yetkili İcra.
+# SİSTEM: Systemd-free, Müdür + Çomar Aktivasyon Uyumlu.
+
 [D-BUS Service]
+# 2026 Protokolü: Merkezi "tr.org.pardus.comar" kimliği mühürlendi.
 Name=tr.org.pardus.comar
+
+# Çekirdek İcra Yolu: setup.py tarafından kurulan ana ikili dosya.
 Exec=/usr/sbin/comar
+
+# Sistem yönetimi (Ağ, Servis, Donanım) için root yetkisi zorunludur.
 User=root

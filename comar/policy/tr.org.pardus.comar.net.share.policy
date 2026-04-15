@@ -2,23 +2,35 @@
 <!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN" "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 
 <policyconfig>
-    <vendor>Pardus</vendor>
-    <vendor_url>http://www.pardus.org.tr</vendor_url>
+    <vendor>Ergün Salman (Poyraz76)</vendor>
+    <vendor_url>mailto:ergunsalman@hotmail.com</vendor_url>
     <icon_name>applications-internet</icon_name>
 
     <action id="tr.org.pardus.comar.net.share.set">
         <description>Set bridge interfaces</description>
-        <description xml:lang="tr">Köprü arabirimlerini ayarla</description>
-        <description xml:lang="nl">Stel brug interfaces in</description>
-        <description xml:lang="sv">Sätt bryggade gränssnitt</description>
-        <message>System policy prevents adding/deleting bridge interfaces</message>
-        <message xml:lang="tr">Sistem politikası köprü arabirimi eklemeyi/kaldırmayı engelliyor</message>
-        <message xml:lang="nl">Systeembeleid voorkomt toevoegen/verwijderen brug interfaces</message> 
-        <message xml:lang="sv">Systempolicyn förhindrar bryggning av gränssnitt</message>
+        <description xml:lang="tr">Köprü arabirimlerini ayarla (Mühürlü İşlem)</description>
+        
+        <message>System policy prevents adding/deleting bridge interfaces. Verify BLAKE3 seal.</message>
+        <message xml:lang="tr">Sistem politikası köprü arabirimi eklemeyi/kaldırmayı engelliyor. Mühür bütünlüğünü kontrol edin.</message>
+        
         <defaults>
             <allow_any>auth_admin_keep</allow_any>
             <allow_active>auth_admin_keep</allow_active>
             <allow_inactive>auth_admin_keep</allow_inactive>
+        </defaults>
+    </action>
+
+    <action id="tr.org.pardus.comar.net.share.get">
+        <description>Get bridge interface info</description>
+        <description xml:lang="tr">Köprü arabirim bilgisini al (Mühürlü Sorgu)</description>
+        
+        <message>System policy prevents getting bridge info.</message>
+        <message xml:lang="tr">Sistem politikası köprü bilgisini almayı engelliyor.</message>
+        
+        <defaults>
+            <allow_any>yes</allow_any>
+            <allow_active>yes</allow_active>
+            <allow_inactive>yes</allow_inactive>
         </defaults>
     </action>
 </policyconfig>

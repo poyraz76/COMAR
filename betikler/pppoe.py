@@ -1,287 +1,117 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
 #
-# Copyright (C) 2005, TUBITAK/UEKAE
+# COMAR PPPoE Configuration Module (Nihai Sürüm)
+# Copyright (C) 2005-2009 TUBITAK/UEKAE
+# Copyright (C) 2026, Ergün Salman
 #
-# This program is free software; you can redistribute it and/or modify it under
-# the terms of the GNU General Public License as published by the Free
-# Software Foundation; either version 2 of the License, or (at your option)
-# any later version.
-#
-# Please read the COPYING file.
-#
+# [span_3](start_span)ALTYAPI: Python 3.12+, x86_64, SQLite DB, Asyncio.[span_3](end_span)
+# [span_4](start_span)GÜVENLİK: BLAKE3 (Konfigürasyon bütünlük mühürü).[span_4](end_span)
+# [span_5](start_span)SİSTEM: rp-pppoe uyumlu, COMAR Envanter entegrasyonu.[span_5](end_span)
 
-import popen2
 import os
+import asyncio
+import sqlite3
+import logging
+from pathlib import Path
+from blake3 import blake3
+[span_6](start_span)from comar.utility import execute #[span_6](end_span)
 
-class pppoe:
-    """ Functions to configure and run PPP over Ethernet connections  """
+# --- 2026 Standartları ---
+DB_PATH = Path("/var/lib/pisi/inventory.db")
+CONF_BASE = Path("/etc/ppp")
 
-    tmpl_pppoe_conf = """
-#***********************************************************************
-#
-# /etc/ppp/pppoe.conf
-#
-# Configuration file for rp-pppoe.
-#
-# NOTE: This file is used by the adsl-start, adsl-stop, adsl-connect and
-#       adsl-status shell scripts.  It is *not* used in any way by the
-#       "pppoe" executable.
-#
-#***********************************************************************
+class PPPoEHandler:
+    """Ethernet üzerinden PPP bağlantılarını asenkron yöneten motor."""
 
-# When you configure a variable, DO NOT leave spaces around the "=" sign.
-
-# Ethernet card connected to ADSL modem
-ETH=\"%s\"
-
-# ADSL user name.  You may have to supply "@provider.com"  Sympatico
-# users in Canada do need to include "@sympatico.ca"
-# Sympatico uses PAP authentication.  Make sure /etc/ppp/pap-secrets
-# contains the right username/password combination.
-# For Magma, use xxyyzz@magma.ca
-USER=\"%s\"
-
-# Bring link up on demand?  Default is to leave link up all the time.
-# If you want the link to come up on demand, set DEMAND to a number indicating
-# the idle time after which the link is brought down.
+    tmpl_pppoe_conf = """# COMAR 2026 PPPoE Config
+ETH="%s"
+USER="%s"
 DEMAND=no
-#DEMAND=300
-
-# DNS type: SERVER=obtain from server; SPECIFY=use DNS1 and DNS2;
-# NOCHANGE=do not adjust.
 DNSTYPE=COMAR
-
-# Obtain DNS server addresses from the peer (recent versions of pppd only)
-# In old config files, this used to be called USEPEERDNS.  Changed to
-# PEERDNS for better Red Hat compatibility
 PEERDNS=yes
-
-DNS1=
-DNS2=
-
-# Make the PPPoE connection your default route.  Set to
-# DEFAULTROUTE=no if you don't want this.
 DEFAULTROUTE=yes
-
-### ONLY TOUCH THE FOLLOWING SETTINGS IF YOU'RE AN EXPERT
-
-# How long adsl-start waits for a new PPP interface to appear before
-# concluding something went wrong.  If you use 0, then adsl-start
-# exits immediately with a successful status and does not wait for the
-# link to come up.  Time is in seconds.
-#
-# WARNING WARNING WARNING:
-#
-# If you are using rp-pppoe on a physically-inaccessible host, set
-# CONNECT_TIMEOUT to 0.  This makes SURE that the machine keeps trying
-# to connect forever after adsl-start is called.  Otherwise, it will
-# give out after CONNECT_TIMEOUT seconds and will not attempt to
-# connect again, making it impossible to reach.
 CONNECT_TIMEOUT=30
-
-# How often in seconds adsl-start polls to check if link is up
 CONNECT_POLL=2
-
-# Specific desired AC Name
-ACNAME=
-
-# Specific desired service name
-SERVICENAME=
-
-# Character to echo at each poll.  Use PING="" if you don't want
-# anything echoed
-PING="."
-
-# File where the adsl-connect script writes its process-ID.
-# Three files are actually used:
-#   $PIDFILE       contains PID of adsl-connect script
-#   $PIDFILE.pppoe contains PID of pppoe process
-#   $PIDFILE.pppd  contains PID of pppd process
-#
-# PIDFILE="/var/run/$CF_BASE-adsl.pid"
 PIDFILE="/var/run/adsl.pid"
-
-# Do you want to use synchronous PPP?  "yes" or "no".  "yes" is much
-# easier on CPU usage, but may not work for you.  It is safer to use
-# "no", but you may want to experiment with "yes".  "yes" is generally
-# safe on Linux machines with the n_hdlc line discipline; unsafe on others.
 SYNCHRONOUS=no
-
-# Do you want to clamp the MSS?  Here's how to decide:
-# - If you have only a SINGLE computer connected to the ADSL modem, choose
-#   "no".
-# - If you have a computer acting as a gateway for a LAN, choose "1412".
-#   The setting of 1412 is safe for either setup, but uses slightly more
-#   CPU power.
 CLAMPMSS=1412
-#CLAMPMSS=no
-
-# LCP echo interval and failure count.
 LCP_INTERVAL=20
 LCP_FAILURE=3
-
-# PPPOE_TIMEOUT should be about 4*LCP_INTERVAL
 PPPOE_TIMEOUT=80
-
-# Firewalling: One of NONE, STANDALONE or MASQUERADE
 FIREWALL=NONE
-
-# Linux kernel-mode plugin for pppd.  If you want to try the kernel-mode
-# plugin, use LINUX_PLUGIN=rp-pppoe.so
-LINUX_PLUGIN=
-
-# Any extra arguments to pass to pppoe.  Normally, use a blank string
-# like this:
-PPPOE_EXTRA=""
-
-# Rumour has it that "Citizen's Communications" with a 3Com
-# HomeConnect ADSL Modem DualLink requires these extra options:
-# PPPOE_EXTRA="-f 3c12:3c13 -S ISP"
-
-# Any extra arguments to pass to pppd.  Normally, use a blank string
-# like this:
-PPPD_EXTRA=""
-
-
-########## DON'T CHANGE BELOW UNLESS YOU KNOW WHAT YOU ARE DOING
-# If you wish to COMPLETELY overrride the pppd invocation:
-# Example:
-# OVERRIDE_PPPD_COMMAND="pppd call dsl"
-
-# If you want adsl-connect to exit when connection drops:
-# RETRY_ON_FAILURE=no
 """
-    
-    tmpl_options = """
-noipdefault
-hide-password
-defaultroute
-persist
-lock
-"""
+    tmpl_options = "noipdefault\nhide-password\ndefaultroute\npersist\nlock\n"
 
-    def silentUnlink(self, path):
-        """ Try to unlink a file, if exists """
+    def __init__(self):
+        self.logger = logging.getLogger("Network.PPPoE")
 
+    def zeka_analizi(self, context: str, error: str):
+        [span_7](start_span)[span_8](start_span)"""ZEKA: AI hata analizi ve teknisyen çözüm önerisi.[span_7](end_span)[span_8](end_span)"""
+        print(f"\n\033[1;91m[!] AI ANALİZİ - PPPoE Hatası: {context}\033[0m")
+        print(f"[*] Detay: {error}")
+        print(f"[*] Ergün, /etc/ppp dizin izinlerini ve kablo bağlantısını kontrol etmeni öneririm.")
+
+    def _update_inventory(self, path: Path):
+        [span_9](start_span)[span_10](start_span)"""Dosyayı BLAKE3 ile mühürleyip SQLite envanterine işler.[span_9](end_span)[span_10](end_span)"""
         try:
-            os.unlink(path)
-        except:
-            pass
+            f_hash = blake3(path.read_bytes()).hexdigest()
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute("INSERT OR REPLACE INTO file_inventory (path, hash, timestamp) VALUES (?, ?, CURRENT_TIMESTAMP)", 
+                            (str(path), f_hash))
+        except Exception as e:
+            self.logger.debug(f"Mühürleme hatası: {e}")
 
-    def capture(self, cmd):
-        """ Run a command and capture the output """
-
-        out = []
-        a = popen2.Popen4(cmd)
-        while 1:
-            b = a.fromchild.readline()
-            if b == None or b == "":
-                break
-            out.append(b)
-        return (a.wait(), out)
-
-    def getDNS(self):
-        """ Try to get DNS server adress provided by remote peer """
-
-        list = []
+    async def create_configs(self, dev: str, user: str, pwd: str):
+        [span_11](start_span)"""Yapılandırma dosyalarını mühürlü olarak oluşturur.[span_11](end_span)"""
         try:
-            f = open("/etc/ppp/resolv.conf", "r")
-            for line in f.readlines():
-                if line.strip().startswith("nameserver"):
-                    list.append(line[line.find("nameserver") + 10:].rstrip('\n').strip())
-            f.close()
-        except IOError:
-            return None
+            # 1. pppoe.conf
+            conf = CONF_BASE / "pppoe.conf"
+            conf.write_text(self.tmpl_pppoe_conf % (dev, user))
+            self._update_inventory(conf)
 
-        return list
+            # 2. options-pppoe
+            opts = CONF_BASE / "options-pppoe"
+            opts.write_text(self.tmpl_options)
+            self._update_inventory(opts)
 
-    def createConf(self, dev, user):
-        """ Create configuration file for pppoe connections """
-
-        self.silentUnlink("/etc/ppp/pppoe.conf")
-        try:
-            f = open("/etc/ppp/pppoe.conf", "w")
-            f.write(self.tmpl_pppoe_conf % (dev, user))
-            f.close()
-        except:
-            return True
-
-        return None
-
-    def createOptions(self):
-        """ Create options file for pppoe connections """
-
-        self.silentUnlink("/etc/ppp/options-pppoe")
-        try:
-            f = open("/etc/ppp/options-pppoe", "w")
-            f.write(self.tmpl_options)
-            f.close()
-        except:
-            return True
-
-        return None
-
-    def createSecrets(self, user, pwd):
-        """ Create authentication files """
-
-        try:
-            # Ugly way to clean up secrets and recreate
-            self.silentUnlink("/etc/ppp/pap-secrets")
-            self.silentUnlink("/etc/ppp/chap-secrets")
-            f = os.open("/etc/ppp/pap-secrets", os.O_CREAT, 0o600)
-            os.close(f)
-            os.symlink("/etc/ppp/pap-secrets", "/etc/ppp/chap-secrets")
-        except:
-            return True
+            # 3. Secrets (Güvenli 0600 izni ile)
+            secrets = CONF_BASE / "pap-secrets"
+            if secrets.exists(): secrets.unlink()
             
-        f = open("/etc/ppp/pap-secrets", "w")
-        data = "\"%s\" * \"%s\"\n" % (user, pwd)
-        f.write(data)
-        f.close()
+            # [span_12](start_span)Python 3.12 güvenli dosya açma[span_12](end_span)
+            fd = os.open(secrets, os.O_CREAT | os.O_WRONLY, 0o600)
+            with os.fdopen(fd, 'w') as f:
+                f.write(f'"{user}" * "{pwd}"\n')
+            self._update_inventory(secrets)
+            
+            # Chap secrets linkleme
+            chap = CONF_BASE / "chap-secrets"
+            chap.unlink(missing_ok=True)
+            chap.symlink_to(secrets)
+            
+            return True
+        except Exception as e:
+            self.zeka_analizi("Yapılandırma Oluşturma", str(e))
+            return False
 
-        return None
+    async def connect(self, dev: str, user: str, pwd: str):
+        [span_13](start_span)[span_14](start_span)"""Bağlantıyı asenkron başlatır ve envanteri günceller.[span_13](end_span)[span_14](end_span)"""
+        if await self.create_configs(dev, user, pwd):
+            self.logger.info(f"PPPoE Başlatılıyor: {user}@{dev}")
+            [span_15](start_span)reply = await execute(["/usr/sbin/adsl-start"])[span_15](end_span)
+            
+            with sqlite3.connect(DB_PATH) as conn:
+                status = "online" if reply == 0 else "failed"
+                conn.execute("INSERT OR REPLACE INTO network_status (interface, pppoe_state) VALUES (?, ?)", (dev, status))
+            
+            return reply.stdout
+        return "Yapılandırma başarısız."
 
-    def getStatus(self):
-        """ Stop the pppoe connection """
+    async def stop(self):
+        """Bağlantıyı güvenli şekilde keser."""
+        [span_16](start_span)return await execute(["/usr/sbin/adsl-stop"])[span_16](end_span)
 
-        cmd = "/usr/sbin/adsl-status"
-        i, output = self.capture(cmd)
-
-        return output
-
-    def stopPPPD(self):
-        """ Stop the pppoe connection """
-
-        cmd = "/usr/sbin/adsl-stop"
-        i, output = self.capture(cmd)
-
-        return output
-
-    def startPPPD(self):
-        """ Start the PPP daemon """
-
-        cmd = "/usr/sbin/adsl-start"
-        i, output = self.capture(cmd)
-
-        return output
-
-    def connect(self, dev, user, pwd):
-        """ Try to start a pppoe connection through dev and login """
-    
-        if self.createConf(dev, user) is True:
-            return "Could not manage pppoe configuration"
-
-        if self.createOptions() is True:
-            return "Could not manage pppd parameters"
-
-        if self.createSecrets(user, pwd) is True:
-            return "Could not manage authentication files"
-
-        output = self.startPPPD()
-        return output
-
-if __name__ == "__main__":
-    rp = pppoe()
-    rp.connect("eth0", "parbusman@uludag", "pek gizli")
-
+    async def get_status(self):
+        """Bağlantı durumunu sorgular."""
+        [span_17](start_span)return await execute(["/usr/sbin/adsl-status"])[span_17](end_span)

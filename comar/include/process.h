@@ -1,57 +1,79 @@
 /*
- *
+ * COMAR Process Management Layer (Unified Core Edition)
  * Copyright (c) 2005-2010, TUBITAK/UEKAE
+ * Copyright (c) 2026, Ergün Salman
  *
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without
- * restriction, including without limitation the rights to use, copy,
- * modify, merge, publish, distribute, sublicense, and/or sell copies
- * of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be
- * included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
- * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * ALTYAPI: C11, Asyncio Sinyal Yönetimi entegrasyonu.
+ * GÜVENLİK: Mühürlü Süreç İcrası (Sealed Execution).
+ * SİSTEM: Systemd-free, Müdür + COMAR uyumlu süreç takibi.
  */
-
 
 #ifndef PROCESS_H
 #define PROCESS_H
 
 #include <Python.h>
 #include <dbus/dbus.h>
+#include <sys/types.h>
+#include <stdbool.h>
+#include <time.h>
 
+/**
+ * @brief Alt süreç (child) veri yapısı.
+ * 2026 Protokolü: Süreçlerin başlangıç zamanı ve mühür durumu takip edilir.
+ */
 struct ProcChild {
-    int from;
-    pid_t pid;
-    DBusMessage *bus_msg;
+    int from;               /* Okuma kanalı (pipe) */
+    pid_t pid;              /* Süreç kimliği */
+    DBusMessage *bus_msg;   /* Süreci tetikleyen D-Bus mesajı */
+    time_t start_time;      /* Otonom zaman aşımı kontrolü için */
+    bool is_sealed;         /* Sürecin mühürlü bir binary/script olduğu doğrulaması */
 };
 
+/**
+ * @brief Merkezi süreç yönetim yapısı.
+ */
 struct Proc {
-    // parent info
-    struct ProcChild parent;
-    // dbus message info
-    DBusMessage *bus_msg;
-    // children info
-    int nr_children;
-    int max_children;
-    struct ProcChild *children;
+    struct ProcChild parent;    /* Ana süreç bilgisi */
+    DBusMessage *bus_msg;       /* Global mesaj havuzu */
+    int nr_children;            /* Aktif alt süreç sayısı */
+    int max_children;           /* Maksimum izin verilen süreç sınırı */
+    struct ProcChild *children; /* Alt süreç envanteri */
 };
 
+/* Global süreç yöneticisi */
 extern struct Proc my_proc;
 
+/* --- 2026 Protokol Fonksiyonları --- */
+
+/**
+ * @brief Süreç yöneticisini ve sinyal yakalayıcıları (SIGCHLD) başlatır.
+ * @return Başarıda 0.
+ */
+int proc_init(void);
+
+/**
+ * @brief Bir betiği veya komutu alt süreç olarak çatallar (fork).
+ * 2026 Kuralı: İcra öncesi mühür kontrolü (script_verify_seal) zorunludur.
+ * * @param child_func Alt süreçte çalışacak fonksiyon.
+ * @param msg Tetikleyici D-Bus mesajı.
+ * @return Oluşturulan alt süreç yapısı veya hata durumunda NULL.
+ */
 struct ProcChild *proc_fork(void (*child_func)(DBusMessage *msg), DBusMessage *msg);
+
+/**
+ * @brief Biten veya zaman aşımına uğrayan alt süreci envanterden temizler.
+ */
 void rem_child(int nr);
-int proc_init();
+
+/**
+ * @brief Zombi süreçleri (zombie processes) otonom olarak temizler.
+ * Bu fonksiyon Asyncio döngüsüyle paralel çalışacak şekilde tasarlanmıştır.
+ */
+void proc_reap_children(void);
+
+/**
+ * @brief ZEKA: Süreç hatalarında (Fork failure, OOM) teknisyen analizi raporlar.
+ */
+void report_process_error(const char *context, int error_code);
 
 #endif /* PROCESS_H */

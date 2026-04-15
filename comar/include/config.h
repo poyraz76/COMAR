@@ -1,38 +1,26 @@
 /*
- *
+ * COMAR System Configuration (Unified Core Edition)
  * Copyright (c) 2005-2010, TUBITAK/UEKAE
+ * Copyright (c) 2026, Ergün Salman
  *
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without
- * restriction, including without limitation the rights to use, copy,
- * modify, merge, publish, distribute, sublicense, and/or sell copies
- * of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be
- * included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
- * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * ALTYAPI: Python 3.12+, x86_64, SQLite DB.
+ * GÜVENLİK: BLAKE3 Mühürleme ve SHA-512 Doğrulama.
+ * SİSTEM: Systemd-free (Müdür + COMAR), TOML Manifest.
  */
 
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <stdbool.h>
+
+/* --- 2026 Sistem Sürümleri --- */
 #ifndef VERSION
-#define VERSION "3.0.3"
+#define VERSION "4.0.0"
 #endif
 
+/* --- D-Bus Haberleşme Protokolü --- */
 #ifndef DBUS_SERVER_ADDRESS
-#define DBUS_SERVER_ADDRESS "unix:path=/var/run/dbus/system_bus_socket"
+#define DBUS_SERVER_ADDRESS "unix:path=/run/dbus/system_bus_socket"
 #endif
 
 #ifndef DBUS_SERVICE_NAME
@@ -43,46 +31,44 @@
 #define DBUS_INTERFACE_PREFIX "tr.org.pardus.comar"
 #endif
 
+/* --- Zaman Aşımı ve Performans (Asyncio Uyumlu) --- */
 #ifndef IDLE_TIMEOUT
-#define IDLE_TIMEOUT 60
+#define IDLE_TIMEOUT 120  /* 2026 Standardı: 120 saniye */
 #endif
 
+/* --- Merkezi Dizin ve Dosya Yolları --- */
 #ifndef DIR_DATA
-#define DIR_DATA "/var/db/comar3"
+#define DIR_DATA "/var/lib/comar"
+#endif
+
+#ifndef DB_PATH
+#define DB_PATH "/var/lib/pisi/inventory.db"
 #endif
 
 #ifndef DIR_LOG
-#define DIR_LOG "/var/log/comar3"
+#define DIR_LOG "/var/log/comar"
 #endif
 
 #ifndef FILE_PID
-#define FILE_PID "/var/run/comar3.pid"
+#define FILE_PID "/run/comar.pid"
 #endif
 
-#ifndef WWW_BUGS
-#define WWW_BUGS "http://bugs.pardus.org.tr"
-#endif
-
+/* --- Global Yapılandırma Değişkenleri --- */
 extern char *config_server_address;
 extern const char *config_unique_address;
 extern char *config_service_name;
 extern char *config_interface;
+
+/* Merkezi Envanter ve Dizinler */
+extern char *config_db_path;     /* SQLite envanter yolu */
 extern char *config_dir_data;
 extern char *config_dir_log;
 extern char *config_file_pid;
 
+/* Çalışma Bayrakları (Flags) */
 extern int config_timeout;
-extern int config_debug;
-extern int config_print;
-extern int config_runlevel;
-extern int config_ignore_missing;
-
-extern char *config_dir_models;
-extern char *config_dir_modules;
-extern char *config_dir_scripts;
-extern char *config_dir_apps;
-extern char *config_file_log_access;
-extern char *config_file_log_traceback;
-
-void config_init(int argc, char *argv[]);
-#endif /* CONFIG_H */
+extern bool config_debug;
+extern bool config_print;
+extern bool config_use_blake3;   /* 2026: BLAKE3 mühürleme kontrolü */
+extern bool config_use_zstd;     /* 2026: Zstd arşivleme kontrolü */
+extern bool config_zeka_enabled; /* 2026: AI Hata Analizi (

@@ -2,23 +2,33 @@
 <!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN" "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 
 <policyconfig>
-    <vendor>Pardus</vendor>
-    <vendor_url>http://www.pardus.org.tr</vendor_url>
-    <icon_name>video-display</icon_name>
+    <vendor>Ergün Salman (Poyraz76)</vendor>
+    <vendor_url>http://ergunsalman.hotmail.com</vendor_url>
+    [span_1](start_span)<icon_name>video-display</icon_name>[span_1](end_span)
 
-    <action id="tr.org.pardus.comar.xorg.driver.get">
+    [span_2](start_span)<action id="tr.org.pardus.comar.xorg.driver.get">[span_2](end_span)
         <description>Get driver info</description>
-        <description xml:lang="tr">Sürücü bilgisini al</description>
-        <description xml:lang="sv">Läser drivrutinsinformation</description>
-        <description xml:lang="nl">Stuurprogramma-informatie ophalen</description>
-        <message>System policy prevents getting driver info</message>
-        <message xml:lang="tr">Sistem politikası sürücü bilgisini almayı engelliyor</message>
-        <message xml:lang="sv">Systempolicyn förhindrar läsning av drivrutinsinformation</message>
-        <message xml:lang="nl">Systeembeleid voorkomt stuurprogramma-informatie ophalen</message>
+        [span_3](start_span)<description xml:lang="tr">Sürücü bilgisini al (Mühürlü Sorgu)</description>[span_3](end_span)
+        
+        <message>System policy prevents getting driver info. Check BLAKE3 seal.</message>
+        <message xml:lang="tr">Sistem politikası sürücü bilgisini almayı engelliyor. [span_4](start_span)Mühür bütünlüğünü kontrol edin.</message>[span_4](end_span)
+        
         <defaults>
-            <allow_any>yes</allow_any>
-            <allow_active>yes</allow_active>
-            <allow_inactive>yes</allow_inactive>
+            [span_5](start_span)<allow_any>yes</allow_any>[span_5](end_span)
+            [span_6](start_span)<allow_active>yes</allow_active>[span_6](end_span)
+            [span_7](start_span)<allow_inactive>yes</allow_inactive>[span_7](end_span)
+        </defaults>
+    </action>
+
+    <action id="tr.org.pardus.comar.xorg.driver.set">
+        <description>Set or update display driver</description>
+        <description xml:lang="tr">Ekran sürücüsünü kur veya güncelle</description>
+        <message>Authentication is required to modify system drivers.</message>
+        <message xml:lang="tr">Sistem sürücülerini değiştirmek için kimlik doğrulaması gereklidir.</message>
+        <defaults>
+            <allow_any>no</allow_any>
+            <allow_active>auth_admin_keep</allow_active>
+            <allow_inactive>no</allow_inactive>
         </defaults>
     </action>
 </policyconfig>

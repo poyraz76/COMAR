@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>mainForm</class>
+ <widget class="QWidget" name="mainForm">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>600</width> <height>450</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Qt6 &amp; COMAR (Poyraz76 Edition)</string> </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <property name="spacing">
+    <number>10</number> </property>
+   <property name="leftMargin">
+    <number>15</number>
+   </property>
+   <property name="topMargin">
+    <number>15</number>
+   </property>
+   <property name="rightMargin">
+    <number>15</number>
+   </property>
+   <property name="bottomMargin">
+    <number>15</number>
+   </property>
+   <item row="0" column="0">
+    <widget class="QTextEdit" name="textServices">
+     <property name="font">
+      <font>
+       <family>Monospace</family> <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="placeholderText">
+      <string>Servis listesi bekleniyor...</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QPushButton" name="buttonServices">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>40</height> </size>
+     </property>
+     <property name="text">
+      <string>Get Services / Servisleri Getir</string>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

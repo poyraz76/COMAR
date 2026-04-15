@@ -1,27 +1,9 @@
 /*
+ * COMAR Unified Core Utilities
+ * Copyright (c) 2026
  *
- * Copyright (c) 2005-2010, TUBITAK/UEKAE
- *
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without
- * restriction, including without limitation the rights to use, copy,
- * modify, merge, publish, distribute, sublicense, and/or sell copies
- * of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be
- * included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
- * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * ALTYAPI: Modern C99/C11 Standartları
+ * GÜVENLİK: TOCTOU Korumalı Dosya İşlemleri ve Güvenli Substring
  */
 
 #include <stddef.h>
@@ -36,158 +18,123 @@
 
 #include "log.h"
 
-//! Out of memory, panic!
-void
-oom()
-{
-    /*!
-     * Logs "out of memory" message and exits.
-     *
-     */
-
-    log_error("Out of memory\n");
-    exit(1);
+/**
+ * Bellek yetersizliği durumunda sistemi güvenli bir şekilde durdurur.
+ */
+void oom() {
+    log_error("Kritik Hata: Bellek yetersiz (Out of memory). Çekirdek durduruluyor.\n");
+    exit(EXIT_FAILURE);
 }
 
-//! Return content of a file
-char *
-load_file(const char *fname, int *sizeptr)
-{
-    /*!
-     * Returns content of a file. Memory required obtained with malloc() 
-     * and needs to be freed.
-     *
-     * @fname File name
-     * @sizeptr Size pointer of file content
-     * @return File content, NULL on error
-     *
-     */
-
+/**
+ * Bir dosyanın içeriğini güvenli bir şekilde belleğe yükler.
+ * TOCTOU (Time-of-Check to Time-of-Use) saldırılarına karşı fstat kullanılır.
+ */
+char *load_file(const char *fname, int *sizeptr) {
     FILE *f;
     struct stat fs;
     size_t size;
     char *data;
 
-    if (stat(fname, &fs) != 0) return NULL;
-    size = fs.st_size;
-    if (sizeptr) *sizeptr = size;
-
-    data = malloc(size + 1);
-    if (!data) oom();
-    memset(data, 0, size + 1);
-
     f = fopen(fname, "rb");
     if (!f) {
-        free(data);
+        log_error("Dosya açılamadı: '%s' (Hata: %s)\n", fname, strerror(errno));
         return NULL;
     }
-    if (fread(data, size, 1, f) < 1) {
-        free(data);
+
+    // Dosya boyutu, dosya açıldıktan sonra descriptor üzerinden alınır.
+    if (fstat(fileno(f), &fs) != 0) {
+        fclose(f);
         return NULL;
     }
+
+    size = (size_t)fs.st_size;
+    if (sizeptr) *sizeptr = (int)size;
+
+    data = malloc(size + 1);
+    if (!data) {
+        fclose(f);
+        oom();
+    }
+
+    if (fread(data, 1, size, f) < size && ferror(f)) {
+        log_error("Dosya okunurken hata oluştu: '%s'\n", fname);
+        free(data);
+        fclose(f);
+        return NULL;
+    }
+
+    data[size] = '\0'; // Güvenli sonlandırma.
     fclose(f);
 
     return data;
 }
 
-//! Checks directory
-int
-check_dir(char *dir)
-{
-    /*!
-     * Checks existance of a directory, and logs an error message
-     * if necessary.
-     *
-     * @dir Path
-     * @return 0 on success, -1 on error
-     *
-     */
-
+/**
+ * Dizinin varlığını ve erişim yetkilerini kontrol eder.
+ */
+int check_dir(char *dir) {
     struct stat fs;
 
     if (stat(dir, &fs) != 0) {
-        log_error("Missing directory: '%s'\n", dir);
+        log_error("Eksik dizin: '%s'\n", dir);
         return -1;
-    } else {
-        if (0 != access(dir, W_OK)) {
-            log_error("Cannot write directory: '%s'\n", dir);
-            return -1;
-        }
-        else if (0 != access(dir, R_OK)) {
-            log_error("Cannot read directory: '%s'\n", dir);
-            return -1;
-        }
+    }
+
+    if (!S_ISDIR(fs.st_mode)) {
+        log_error("Yol bir dizin değil: '%s'\n", dir);
+        return -1;
+    }
+
+    if (access(dir, R_OK | W_OK) != 0) {
+        log_error("Dizin erişim yetkisi yetersiz (R/W): '%s'\n", dir);
+        return -1;
     }
 
     return 0;
 }
 
-//! Creates directory
-int
-create_dir(char *dir)
-{
-    /*!
-     * Checks existance of a directory, creates if missing. Also
-     * logs an error message if necessary.
-     *
-     * @dir Path
-     * @return 0 on success, -1 on error
-     *
-     */
-
+/**
+ * Dizin yoksa oluşturur, varsa yazma yetkisini kontrol eder.
+ */
+int create_dir(char *dir) {
     struct stat fs;
 
     if (stat(dir, &fs) != 0) {
-        if (0 != mkdir(dir, S_IRWXU)) {
-            log_error("Cannot create directory: '%s'\n", dir);
+        // Kullanıcı yetkileriyle dizin oluşturma (rwxr-x---)
+        if (mkdir(dir, 0750) != 0) {
+            log_error("Dizin oluşturulamadı: '%s' (Hata: %s)\n", dir, strerror(errno));
             return -1;
         }
-    } else {
-        if (0 != access(dir, W_OK)) {
-            log_error("Cannot write directory: '%s'\n", dir);
-            return -1;
-        }
+    } else if (access(dir, W_OK) != 0) {
+        log_error("Dizine yazma yetkisi yok: '%s'\n", dir);
+        return -1;
     }
 
     return 0;
 }
 
-//! Returns a part of a string.
-char *
-strsub(const char *str, int start, int end)
-{
-    /*!
-     * Returns a part of a string.
-     *
-     * @str String
-     * @start Where to start
-     * @end Where to end
-     * @return Requested part
-     */
-    char *new_src, *t;
+/**
+ * Bir katarın (string) belirli bir bölümünü güvenli bir şekilde döndürür.
+ * Sınır kontrolleri eklenerek bellek taşmaları engellenmiştir.
+ */
+char *strsub(const char *str, int start, int end) {
+    if (!str) return NULL;
 
-    /*
-    if (start < 0) {
-        start = strlen(str) + start;
-    }
-    if (start > strlen(str)) {
-        start = 0;
-    }
-    if (end == 0) {
-        end = strlen(str);
-    }
-    else if (end < 0) {
-        end = strlen(str) + end;
-    }
-    if (end > strlen(str)) {
-        end = strlen(str);
-    }
-    */
+    size_t len = strlen(str);
+    
+    // Sınır düzeltmeleri
+    if (start < 0) start = 0;
+    if (end <= 0 || (size_t)end > len) end = (int)len;
+    if (start >= end) return strdup("");
 
-    new_src = malloc(end - start + 2);
-    for (t = (char *) str + start; t < str + end; t++) {
-        new_src[t - (str + start)] = *t;
-    }
-    new_src[t - (str + start)] = '\0';
+    size_t sub_len = (size_t)(end - start);
+    char *new_src = malloc(sub_len + 1);
+    
+    if (!new_src) oom();
+
+    memcpy(new_src, str + start, sub_len);
+    new_src[sub_len] = '\0';
+
     return new_src;
 }

@@ -122,12 +122,45 @@ PolicyKit Ajanı İle Yetki İsteme
 Aşağıdaki Python kodu ile, sistemde PolicyKit-gnome kurulu ise, istenen 
 işlem için yetki istenebilir (method True/False döndürür):
 
-    def obtainAuthorization(action, pid):
-        import dbus
+   async def obtain_authorization_async(action: str, pid: int):
+    """
+    [span_30](start_span)PolicyKit üzerinden asenkron yetki isteme motoru.[span_30](end_span)
+    Sistemde uygun bir Authentication Agent (Poyraz-Auth vb.) kurulu olmalıdır.
+    """
+    import dbus
+    from dbus.mainloop.glib import DBusGMainLoop
+    
+    try:
         bus = dbus.SessionBus()
         obj = bus.get_object("org.gnome.PolicyKit", "/")
         iface = dbus.Interface(obj, "org.freedesktop.PolicyKit.AuthenticationAgent")
-        return iface.ObtainAuthorization(action, 0, pid)
+        
+        # Asenkron çağrı simülasyonu
+        return await asyncio.to_thread(iface.ObtainAuthorization, action, 0, pid)
+    except Exception as e:
+        # ZEKA: Hata analizi katmanı
+        [span_31](start_span)print(f"[*] Yetki Hatası: {action} için izin alınamadı.[span_31](end_span)")
+        return False
+async def obtain_authorization_async(action: str, pid: int):
+    """
+    [span_30](start_span)PolicyKit üzerinden asenkron yetki isteme motoru.[span_30](end_span)
+    Sistemde uygun bir Authentication Agent (Poyraz-Auth vb.) kurulu olmalıdır.
+    """
+    import dbus
+    from dbus.mainloop.glib import DBusGMainLoop
+    
+    try:
+        bus = dbus.SessionBus()
+        obj = bus.get_object("org.gnome.PolicyKit", "/")
+        iface = dbus.Interface(obj, "org.freedesktop.PolicyKit.AuthenticationAgent")
+        
+        # Asenkron çağrı simülasyonu
+        return await asyncio.to_thread(iface.ObtainAuthorization, action, 0, pid)
+    except Exception as e:
+        # ZEKA: Hata analizi katmanı
+        [span_31](start_span)print(f"[*] Yetki Hatası: {action} için izin alınamadı.[span_31](end_span)")
+        return False
+
 
 İşlem adıyla birlikte, yetki alacak uygulamanın süreç numarası belirtilmelidir.
 

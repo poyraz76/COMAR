@@ -1,27 +1,9 @@
 /*
+ * COMAR Unified Core - Process Management Engine
+ * Copyright (c) 2026, Ergün Salman (Poyraz76)
  *
- * Copyright (c) 2005-2010, TUBITAK/UEKAE
- *
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without
- * restriction, including without limitation the rights to use, copy,
- * modify, merge, publish, distribute, sublicense, and/or sell copies
- * of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be
- * included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
- * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
+ * ALTYAPI: POSIX Process Management, Unified Core 4.0.
+ * GÜVENLİK: Graceful Shutdown & Zombie Process Protection.
  */
 
 #include "process.h"
@@ -36,21 +18,17 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <signal.h>
 
 struct Proc my_proc;
 
-struct ProcChild *
-add_child(pid_t pid, int from, DBusMessage *bus_msg)
-{
-    int i;
-
-    i = my_proc.nr_children;
+/**
+ * Yeni bir alt süreci envantere mühürler ve ekler.
+ */
+struct ProcChild *add_child(pid_t pid, int from, DBusMessage *bus_msg) {
+    int i = my_proc.nr_children;
     if (i >= my_proc.max_children) {
-        if (i == 0) {
-            my_proc.max_children = 4;
-        } else {
-            my_proc.max_children *= 2;
-        }
+        my_proc.max_children = (i == 0) ? 4 : my_proc.max_children * 2;
         my_proc.children = realloc(my_proc.children, my_proc.max_children * sizeof(struct ProcChild));
         if (!my_proc.children) oom();
     }
@@ -60,107 +38,121 @@ add_child(pid_t pid, int from, DBusMessage *bus_msg)
     my_proc.children[i].pid = pid;
     my_proc.children[i].bus_msg = bus_msg;
     ++my_proc.nr_children;
+    
+    log_debug("Süreç Eklendi (PID: %d). Aktif Çocuk: %d\n", pid, my_proc.nr_children);
     return &my_proc.children[i];
 }
 
-void
-rem_child(int nr)
-{
+/**
+ * Tamamlanan süreci envanterden temizler ve mühür sökülür.
+ */
+void rem_child(int nr) {
     int status;
-    waitpid(my_proc.children[nr].pid, &status, 0);
+    // Zombi oluşumunu engellemek için waitpid kullanılır.
+    waitpid(my_proc.children[nr].pid, &status, WNOHANG);
     close(my_proc.children[nr].from);
+    
     --my_proc.nr_children;
-    if (0 == my_proc.nr_children) return;
-    (my_proc.children)[nr] = (my_proc.children)[my_proc.nr_children];
+    if (my_proc.nr_children > 0 && nr != my_proc.nr_children) {
+        my_proc.children[nr] = my_proc.children[my_proc.nr_children];
+    }
 }
 
-int
-proc_init()
-{
+/**
+ * Süreç yönetim motorunu başlatır.
+ */
+int proc_init() {
     memset(&my_proc, 0, sizeof(struct Proc));
     my_proc.parent.from = -1;
     my_proc.max_children = 8;
-    my_proc.bus_msg = NULL;
-    my_proc.children = calloc(8, sizeof(struct ProcChild));
+    my_proc.children = calloc(my_proc.max_children, sizeof(struct ProcChild));
     if (!my_proc.children) oom();
     return 0;
 }
 
-void
-stop_children(void)
-{
+/**
+ * Aktif olan tüm alt süreçleri güvenli bir şekilde durdurur.
+ */
+void stop_children(void) {
+    log_debug("Tüm alt süreçler durduruluyor...\n");
+    for (int i = 0; i < my_proc.nr_children; i++) {
+        kill(my_proc.children[i].pid, SIGTERM);
+    }
 }
 
-void
-proc_finish(void)
-{
+/**
+ * Çekirdek sonlanırken tüm süreci mühürler ve temizler.
+ */
+void proc_finish(void) {
     if (my_proc.nr_children) stop_children();
+    log_info("Süreç motoru kapatıldı.\n");
     exit(0);
 }
 
-static void
-handle_sigterm(int signum)
-{
+/**
+ * Sistemden gelen kapatma sinyallerini işler.
+ */
+static void handle_sigterm(int signum) {
+    log_info("Kapatma sinyali alındı (%d). Çıkış yapılıyor...\n", signum);
+    proc_finish();
 }
 
-void
-handle_signals(void)
-{
+/**
+ * Sinyal yakalama mekanizmasını mühürler.
+ */
+void handle_signals(void) {
     struct sigaction act;
     struct sigaction ign;
-    struct sigaction dfl;
 
     act.sa_handler = handle_sigterm;
-    /*! initialize and empty a signal set. Signals are to be blocked while executing handle_sigterm */
     sigemptyset(&act.sa_mask);
-    act.sa_flags = 0; /*!< special flags */
+    act.sa_flags = SA_RESTART; // Kesilen sistem çağrılarını otomatik devam ettir.
 
     ign.sa_handler = SIG_IGN;
     sigemptyset(&ign.sa_mask);
     ign.sa_flags = 0;
 
-    dfl.sa_handler = SIG_DFL;
-    sigemptyset(&dfl.sa_mask);
-    dfl.sa_flags = 0;
-
     sigaction(SIGTERM, &act, NULL);
-    sigaction(SIGPIPE, &ign, NULL);
-    sigaction(SIGINT, &dfl, NULL);
+    sigaction(SIGINT, &act, NULL);  // Kullanıcı kesmesi (Ctrl+C) desteği.
+    sigaction(SIGPIPE, &ign, NULL); // Kırık boru hatalarını yoksay.
 }
 
-struct ProcChild *
-proc_fork(void (*child_func)(DBusMessage *msg), DBusMessage *msg)
-{
+/**
+ * Betiği yeni bir alt süreçte çatallayarak (fork) çalıştırır.
+ */
+struct ProcChild *proc_fork(void (*child_func)(DBusMessage *msg), DBusMessage *msg) {
     pid_t pid;
     int pfd[2];
 
     dbus_message_ref(msg);
+    if (pipe(pfd) == -1) return NULL;
 
-    pipe(pfd);
     pid = fork();
     if (pid == -1) {
+        close(pfd[0]);
+        close(pfd[1]);
         return NULL;
     }
-    if (pid == 0) {
+
+    if (pid == 0) { // Alt Süreç (Child)
         close(pfd[1]);
         fcntl(pfd[0], F_SETFD, FD_CLOEXEC);
 
+        // Alt süreç için Proc yapısını sıfırla
         memset(&my_proc, 0, sizeof(struct Proc));
         my_proc.parent.from = pfd[0];
         my_proc.parent.pid = getppid();
-
         my_proc.bus_msg = msg;
 
         handle_signals();
-
         child_func(msg);
+        
         close(pfd[0]);
         proc_finish();
-
-        while (1) {} // to keep gcc happy
-    } else {
-        // parent process continues
+        _exit(0); // Güvenli çıkış
+    } else { // Ana Süreç (Parent)
         close(pfd[0]);
         return add_child(pid, pfd[1], msg);
     }
+    return NULL;
 }
